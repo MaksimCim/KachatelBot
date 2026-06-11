@@ -13,7 +13,10 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 import yt_dlp
 
-load_dotenv()
+# Загружаем .env только если файл существует (для локального запуска)
+if os.path.exists(".env"):
+    load_dotenv()
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 logging.basicConfig(
@@ -24,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 if not BOT_TOKEN:
     logger.error("BOT_TOKEN is not defined!")
-    raise ValueError("BOT_TOKEN must be specified in .env file.")
+    raise ValueError("BOT_TOKEN must be set either in .env file or as environment variable.")
 
 DOWNLOADS_DIR = os.path.join(tempfile.gettempdir(), "instabot_downloads")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
