@@ -13,16 +13,20 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 import yt_dlp
 
+# ====================== НАСТРОЙКИ ======================
 if os.path.exists(".env"):
     load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN must be set!")
+    raise ValueError("BOT_TOKEN must be set in .env or environment variables")
 
 DOWNLOADS_DIR = os.path.join(tempfile.gettempdir(), "instabot_downloads")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
@@ -33,7 +37,7 @@ dp = Dispatcher()
 rate_limit_db: Dict[int, float] = {}
 RATE_LIMIT_SECONDS = 12
 
-# === Regex ===
+# ====================== REGEX ======================
 SUPPORTED_LINK_REGEX = re.compile(
     r'https?://(?:www\.)?'
     r'(?:instagram\.com|youtube\.com|youtu\.be|tiktok\.com|vt\.tiktok\.com|'
@@ -47,19 +51,23 @@ INSTAGRAM_STORY_REGEX = re.compile(
     re.IGNORECASE
 )
 
-# === Функции скачивания ===
+# ====================== ФУНКЦИИ СКАЧИВАНИЯ ======================
 
 async def download_instagram_media(url: str, post_id: str) -> list[tuple[str, str]]:
+    """Скачивает фото и видео из Instagram (включая карусели)"""
     output_tmpl = os.path.join(DOWNLOADS_DIR, f"{post_id}_%(playlist_index)s.%(ext)s")
+
     ydl_opts = {
         'format': 'bestvideo*+bestaudio/best',
+        'merge_output_format': 'mp4',
         'outtmpl': output_tmpl,
         'quiet': True,
         'no_warnings': True,
-        'merge_output_format': 'mp4',
         'http_headers': {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X)'}
     }
+
     loop = asyncio.get_running_loop()
+
     def _download():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -69,27 +77,32 @@ async def download_instagram_media(url: str, post_id: str) -> list[tuple[str, st
                     if entry:
                         filepath = entry.get('filepath') or ydl.prepare_filename(entry)
                         if os.path.exists(filepath):
-                            mtype = 'video' if filepath.lower().endswith(('.mp4','.mov','.webm')) else 'photo'
+                            mtype = 'video' if filepath.lower().endswith(('.mp4', '.mov', '.webm')) else 'photo'
                             files.append((filepath, mtype))
             else:
                 filepath = info.get('filepath') or ydl.prepare_filename(info)
                 if os.path.exists(filepath):
-                    mtype = 'video' if filepath.lower().endswith(('.mp4','.mov','.webm')) else 'photo'
+                    mtype = 'video' if filepath.lower().endswith(('.mp4', '.mov', '.webm')) else 'photo'
                     files.append((filepath, mtype))
             return files
+
     return await loop.run_in_executor(None, _download)
 
 
 async def download_generic_media(url: str) -> list[tuple[str, str]]:
+    """Универсальная загрузка с YouTube, TikTok, X, VK, Pinterest"""
     output_tmpl = os.path.join(DOWNLOADS_DIR, "%(title).80s_%(id)s.%(ext)s")
+
     ydl_opts = {
         'format': 'bestvideo*+bestaudio/best',
+        'merge_output_format': 'mp4',
         'outtmpl': output_tmpl,
         'quiet': True,
         'no_warnings': True,
-        'merge_output_format': 'mp4',
     }
+
     loop = asyncio.get_running_loop()
+
     def _download():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -99,29 +112,32 @@ async def download_generic_media(url: str) -> list[tuple[str, str]]:
                     if entry:
                         filepath = entry.get('filepath') or ydl.prepare_filename(entry)
                         if os.path.exists(filepath):
-                            mtype = 'video' if filepath.lower().endswith(('.mp4','.mov','.webm')) else 'photo'
+                            mtype = 'video' if filepath.lower().endswith(('.mp4', '.mov', '.webm')) else 'photo'
                             files.append((filepath, mtype))
             else:
                 filepath = info.get('filepath') or ydl.prepare_filename(info)
                 if os.path.exists(filepath):
-                    mtype = 'video' if filepath.lower().endswith(('.mp4','.mov','.webm')) else 'photo'
+                    mtype = 'video' if filepath.lower().endswith(('.mp4', '.mov', '.webm')) else 'photo'
                     files.append((filepath, mtype))
             return files
+
     return await loop.run_in_executor(None, _download)
 
 
-# === Обработчики ===
+# ====================== ОБРАБОТЧИКИ ======================
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
-    await message.reply("Ты пидрюга ебанный. Кидай ссылку — я вытащу видео или фото и залью тебе сперму в чат.")
+    await message.reply(
+        "Ты пидрюга ебанный. Кидай ссылку — я вытащу видео или фото и залью тебе сперму в чат."
+    )
 
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
     await message.reply(
-        "Просто кинь ссылку на пост/видео из Instagram, TikTok, YouTube, X (Twitter), VK или Pinterest.\n"
-        "Я скачаю и залью тебе сперму в виде фото или видео."
+        "Просто кинь ссылку на пост или видео из Instagram, TikTok, YouTube, X (Twitter), VK или Pinterest.\n"
+        "Я скачаю и залью тебе сперму в виде медиа."
     )
 
 
@@ -158,16 +174,20 @@ async def handle_media_download(message: Message):
 
         await bot.delete_message(message.chat.id, status_msg.message_id)
 
+        # Отправляем по 10 медиа за раз
         for i in range(0, len(media_files), 10):
-            chunk = media_files[i:i+10]
+            chunk = media_files[i:i + 10]
             media_group = []
+
             for file_path, media_type in chunk:
                 if media_type == 'video':
                     media_group.append(InputMediaVideo(media=FSInputFile(file_path)))
                 else:
                     media_group.append(InputMediaPhoto(media=FSInputFile(file_path)))
+
             await message.reply_media_group(media=media_group)
 
+        # Чистим временные файлы
         for file_path, _ in media_files:
             try:
                 os.remove(file_path)
@@ -175,7 +195,7 @@ async def handle_media_download(message: Message):
                 pass
 
     except Exception as e:
-        logger.exception(f"Ошибка при скачивании: {e}")
+        logger.exception(f"Ошибка при скачивании {url}: {e}")
         await status_msg.edit_text("Не удалось залить сперму. Попробуй другую ссылку.")
 
 
@@ -183,11 +203,14 @@ async def handle_media_download(message: Message):
 async def handle_unknown_text(message: Message):
     if message.chat.type != "private":
         return
+
     await message.reply(
         "<b>Режим ожидания спермы!</b>\n\n"
-        "Кидай ссылку на видео или фото из Instagram, TikTok, YouTube, X, VK или Pinterest."
+        "Кидай ссылку на видео или фото из Instagram, TikTok, YouTube, X, VK или Pinterest — я всё вытащу."
     )
 
+
+# ====================== ЗАПУСК ======================
 
 async def main():
     logger.info("Бот запущен и готов заливать сперму...")
