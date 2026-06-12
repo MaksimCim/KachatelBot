@@ -35,7 +35,7 @@ bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTM
 dp = Dispatcher()
 
 rate_limit_db: Dict[int, float] = {}
-RATE_LIMIT_SECONDS = 12
+RATE_LIMIT_SECONDS = 5   # Уменьшено до 5 секунд
 
 # ====================== REGEX ======================
 SUPPORTED_LINK_REGEX = re.compile(
@@ -57,34 +57,21 @@ async def download_instagram_media(url: str, post_id: str) -> list[tuple[str, st
     output_tmpl = os.path.join(DOWNLOADS_DIR, f"{post_id}_%(playlist_index)s.%(ext)s")
 
     ydl_opts = {
-        'format': 'best',                    # ← Изменено (более гибкий формат)
+        'format': 'best',
         'outtmpl': output_tmpl,
         'quiet': True,
         'no_warnings': True,
-        'http_headers': {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X)'}
+        'extractor_args': {
+            'instagram': {
+                'api_hostname': 'i.instagram.com'
+            }
+        },
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
+        }
     }
 
     loop = asyncio.get_running_loop()
-
-    def _download():
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            files = []
-            if 'entries' in info and info['entries']:
-                for entry in info['entries']:
-                    if entry:
-                        filepath = entry.get('filepath') or ydl.prepare_filename(entry)
-                        if os.path.exists(filepath):
-                            mtype = 'video' if filepath.lower().endswith(('.mp4', '.mov', '.webm')) else 'photo'
-                            files.append((filepath, mtype))
-            else:
-                filepath = info.get('filepath') or ydl.prepare_filename(info)
-                if os.path.exists(filepath):
-                    mtype = 'video' if filepath.lower().endswith(('.mp4', '.mov', '.webm')) else 'photo'
-                    files.append((filepath, mtype))
-            return files
-
-    return await loop.run_in_executor(None, _download)
 
     def _download():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -169,7 +156,7 @@ async def handle_media_download(message: Message):
 
     if current_time - rate_limit_db.get(user_id, 0) < RATE_LIMIT_SECONDS:
         seconds_left = int(RATE_LIMIT_SECONDS - (current_time - rate_limit_db.get(user_id, 0)))
-        await message.reply(f"⏳ Подожди {seconds_left} сек., я ещё не успел кончить.")
+        await message.reply(f"⏳ Подожди {seconds_left} сек.")
         return
 
     url = SUPPORTED_LINK_REGEX.search(message.text).group(0)
@@ -185,6 +172,7 @@ async def handle_media_download(message: Message):
             media_files = await download_generic_media(url)
 
         if not media_files:
+            rate_limit_db[user_id] = 0  # Сбрасываем ожидание при ошибке
             await status_msg.edit_text("Не удалось залить сперму. Попробуй другую ссылку.")
             return
 
@@ -209,6 +197,7 @@ async def handle_media_download(message: Message):
                 pass
 
     except Exception as e:
+        rate_limit_db[user_id] = 0  # Сбрасываем таймер при ошибке
         logger.exception(f"Ошибка при обработке ссылки: {e}")
         try:
             await status_msg.edit_text("Не удалось залить сперму. Попробуй другую ссылку.")
