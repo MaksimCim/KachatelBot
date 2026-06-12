@@ -35,7 +35,7 @@ bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTM
 dp = Dispatcher()
 
 rate_limit_db: Dict[int, float] = {}
-RATE_LIMIT_SECONDS = 5   # Уменьшено до 5 секунд
+RATE_LIMIT_SECONDS = 5
 
 # ====================== REGEX ======================
 SUPPORTED_LINK_REGEX = re.compile(
@@ -98,7 +98,7 @@ async def download_generic_media(url: str) -> list[tuple[str, str]]:
     output_tmpl = os.path.join(DOWNLOADS_DIR, "%(title).80s_%(id)s.%(ext)s")
 
     ydl_opts = {
-        'format': 'best',                    # ← Изменено на более гибкий формат
+        'format': 'best',
         'outtmpl': output_tmpl,
         'quiet': True,
         'no_warnings': True,
@@ -172,7 +172,7 @@ async def handle_media_download(message: Message):
             media_files = await download_generic_media(url)
 
         if not media_files:
-            rate_limit_db[user_id] = 0  # Сбрасываем ожидание при ошибке
+            rate_limit_db[user_id] = 0
             await status_msg.edit_text("Не удалось залить сперму. Попробуй другую ссылку.")
             return
 
@@ -196,9 +196,9 @@ async def handle_media_download(message: Message):
             except:
                 pass
 
-       except Exception as e:
-        error_msg = str(e).lower()
+    except Exception as e:
         rate_limit_db[user_id] = 0
+        error_msg = str(e).lower()
 
         if "sign in to confirm" in error_msg:
             msg = "Это видео на YouTube требует авторизации. К сожалению, не могу скачать."
@@ -211,6 +211,7 @@ async def handle_media_download(message: Message):
             await status_msg.edit_text(msg)
         except:
             pass
+
         logger.exception(f"Ошибка при обработке ссылки: {e}")
 
 
