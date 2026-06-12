@@ -98,7 +98,7 @@ async def download_generic_media(url: str) -> list[tuple[str, str]]:
     output_tmpl = os.path.join(DOWNLOADS_DIR, "%(title).80s_%(id)s.%(ext)s")
 
     ydl_opts = {
-        'format': 'best[ext=mp4]/best',
+        'format': 'best',                    # ← Изменено на более гибкий формат
         'outtmpl': output_tmpl,
         'quiet': True,
         'no_warnings': True,
@@ -132,7 +132,7 @@ async def download_generic_media(url: str) -> list[tuple[str, str]]:
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     await message.reply(
-        "Ты пидрюга ебанный. Кидай ссылку — я вытащу видео или фото и залью тебе сперму в чат."
+        "Готов залить себе сперму? Кидай ссылку — я вытащу видео или фото и залью тебе сперму в чат."
     )
 
 
@@ -196,13 +196,22 @@ async def handle_media_download(message: Message):
             except:
                 pass
 
-    except Exception as e:
-        rate_limit_db[user_id] = 0  # Сбрасываем таймер при ошибке
-        logger.exception(f"Ошибка при обработке ссылки: {e}")
+       except Exception as e:
+        error_msg = str(e).lower()
+        rate_limit_db[user_id] = 0
+
+        if "sign in to confirm" in error_msg:
+            msg = "Это видео на YouTube требует авторизации. К сожалению, не могу скачать."
+        elif "requested format is not available" in error_msg:
+            msg = "Не удалось скачать в нужном формате. Попробуй другую ссылку."
+        else:
+            msg = "Не удалось залить сперму. Попробуй другую ссылку."
+
         try:
-            await status_msg.edit_text("Не удалось залить сперму. Попробуй другую ссылку.")
+            await status_msg.edit_text(msg)
         except:
             pass
+        logger.exception(f"Ошибка при обработке ссылки: {e}")
 
 
 @dp.message(F.text)
