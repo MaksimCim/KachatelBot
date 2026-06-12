@@ -54,12 +54,10 @@ INSTAGRAM_STORY_REGEX = re.compile(
 # ====================== ФУНКЦИИ СКАЧИВАНИЯ ======================
 
 async def download_instagram_media(url: str, post_id: str) -> list[tuple[str, str]]:
-    """Скачивает фото и видео из Instagram (включая карусели)"""
     output_tmpl = os.path.join(DOWNLOADS_DIR, f"{post_id}_%(playlist_index)s.%(ext)s")
 
     ydl_opts = {
-        'format': 'bestvideo*+bestaudio/best',
-        'merge_output_format': 'mp4',
+        'format': 'best[ext=mp4]/best',           # ← Изменено
         'outtmpl': output_tmpl,
         'quiet': True,
         'no_warnings': True,
@@ -67,7 +65,6 @@ async def download_instagram_media(url: str, post_id: str) -> list[tuple[str, st
     }
 
     loop = asyncio.get_running_loop()
-
     def _download():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -85,24 +82,20 @@ async def download_instagram_media(url: str, post_id: str) -> list[tuple[str, st
                     mtype = 'video' if filepath.lower().endswith(('.mp4', '.mov', '.webm')) else 'photo'
                     files.append((filepath, mtype))
             return files
-
     return await loop.run_in_executor(None, _download)
 
 
 async def download_generic_media(url: str) -> list[tuple[str, str]]:
-    """Универсальная загрузка с YouTube, TikTok, X, VK, Pinterest"""
     output_tmpl = os.path.join(DOWNLOADS_DIR, "%(title).80s_%(id)s.%(ext)s")
 
     ydl_opts = {
-        'format': 'bestvideo*+bestaudio/best',
-        'merge_output_format': 'mp4',
+        'format': 'best[ext=mp4]/best',           # ← Изменено
         'outtmpl': output_tmpl,
         'quiet': True,
         'no_warnings': True,
     }
 
     loop = asyncio.get_running_loop()
-
     def _download():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -120,7 +113,6 @@ async def download_generic_media(url: str) -> list[tuple[str, str]]:
                     mtype = 'video' if filepath.lower().endswith(('.mp4', '.mov', '.webm')) else 'photo'
                     files.append((filepath, mtype))
             return files
-
     return await loop.run_in_executor(None, _download)
 
 
